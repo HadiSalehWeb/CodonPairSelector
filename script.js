@@ -72,13 +72,21 @@ fetch('data/vectors.json')
                         [false, false, false]
                     ],
                     reset: () => setState(Array(10).fill(-1)),
-                    help: () => window.open('https://github.com/HadiSalehWeb/CodonPairSelector', '_blank') 
+                    help: () => window.open('https://github.com/HadiSalehWeb/CodonPairSelector', '_blank')
                 }
 
                 const toggle = function (row, pair) {
                     if (!state.allowExcludedSelection && state.excluded[row][pair]) return
                     state.included[row] = state.included[row] === pair ? -1 : pair
+                    updateLogic()
+                }
 
+                const setState = function (vector) {
+                    state.included = vector
+                    updateLogic()
+                }
+
+                const updateLogic = function () {
                     if (state.circularity) {
                         const includedCodons = state.included.reduce((a, c, i) => c === -1 ? a : a.concat(standardOrder[i][c]), [])
                         state.excluded = standardOrder.map((row, i) =>
@@ -93,18 +101,6 @@ fetch('data/vectors.json')
                             .map(x => x.sort())
                             .map(x => [!x.includes(0), !x.includes(1), !x.includes(2)])
                     }
-
-                    update()
-                }
-
-                const setState = function (vector) {
-                    state.included = vector
-
-                    state.excluded = vectors
-                        .filter(vector => vector.every((elem, i) => state.included[i] === -1 || state.included[i] === elem))
-                        .reduce((a, c) => (c.map((x, i) => a[i].includes(x) ? a[i] : a[i].push(x)), a), Array(10).fill(0).map(_ => []))
-                        .map(x => x.sort())
-                        .map(x => [!x.includes(0), !x.includes(1), !x.includes(2)])
 
                     update()
                 }
