@@ -26,4 +26,4 @@ The codon anti-codon pairs are colored by the patterns of the nucleotides they c
 - Table: choose which table to show on the right hand side, either the 216 maximal self-compimentary circular __C3__ codes, or the 528 maximal self-compimentary circular __non-C3__ codes.
 - Test for: the testing codition for excluding pairs. You can either test for __circularity__ or __circularity and C3__.
 - Test by: method of testing. __Matching__ checks if the "Test for" codition is true for a code by comparing the code you're building to every other code in the table, which in effect also tests for maximality (pairs that contribute to circular C3 but non-maximal codes are therefore excluded when this option is selected). __Algorithm__ tests using a brute force algorithm, without any reference to the table. Choosing Algorithm ignores the maximality condition.
-- \# of codes: show the number of codes compliant with the currently selected codon pairs.
+- \# of codes: shows the number of codes compliant with the currently selected codon pairs.
