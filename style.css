@@ -19,11 +19,25 @@ table {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
+}
+
+#codon-table table {
     width: 90%;
 }
 
 td {
     padding: 2px 2px;
+    text-align: center;
+    user-select: none; 
+}
+
+#codes-table table:nth-child(2) {
+    font-size: 11px;
+}
+
+
+#codes-table table:nth-child(2) td {
+    padding: 0 2px;
     text-align: center;
     user-select: none; 
 }
@@ -64,4 +78,8 @@ td {
     left: 50%;
     width: 50%;
     height: 100%;
+}
+
+.dg.main.a {
+    width: 260px !important;
 }
