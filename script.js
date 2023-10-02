@@ -109,19 +109,19 @@ fetch('data/vectors.json')
                                 }
 
                                 const updateLogic = function () {
-                                    if (guiState['Test by'] === 'Algorithm') {
+                                    if (guiState['Maximality'] === 'Ignore maximality') {
                                         const includedCodons = state.included.reduce((a, c, i) => c === -1 ? a : a.concat(standardOrder[i][c]), [])
                                         state.excluded = standardOrder.map((row, i) =>
                                             state.included[i] !== -1 ? [true, true, true] :
                                                 row.map(x => {
                                                     const code = x.concat(includedCodons)
-                                                    return guiState["Test for"] === 'Circularity only' ? !isCircular(code.map(c => letterToNumber(c))) :
+                                                    return guiState["C3"] === 'Test for circularity only' ? !isCircular(code.map(c => letterToNumber(c))) :
                                                         !(isCircular(code.map(c => letterToNumber(c))) && isCircular(code.map(c => alpha1(letterToNumber(c)))) && isCircular(code.map(c => alpha2(letterToNumber(c)))))
                                                 })
                                         )
                                     }
                                     else {
-                                        state.excluded = (guiState['Test for'] === 'Circularity only' ? vectorsNonC3 : vectors)
+                                        state.excluded = (guiState['C3'] === 'Test for circularity only' ? vectorsNonC3 : vectors)
                                             .filter(vector => vector.every((elem, i) => state.included[i] === -1 || state.included[i] === elem))
                                             .reduce((a, c) => (c.map((x, i) => a[i].includes(x) ? a[i] : a[i].push(x)), a), Array(10).fill(0).map(_ => []))
                                             .map(x => x.sort())
@@ -133,7 +133,7 @@ fetch('data/vectors.json')
 
                                 const codonTableContainer = document.getElementById('codon-table')
                                 const codesTableContainer = document.getElementById('codes-table')
-                                const activeCodosTable = _ => guiState['Table'] === 'Circular C3 codes' ? codesTableContainer.children[0] : codesTableContainer.children[1]
+                                const activeCodosTable = _ => guiState['Table'] === 'C3 codes' ? codesTableContainer.children[0] : codesTableContainer.children[1]
 
                                 const build = function () {
                                     buildCodonTable()
@@ -211,8 +211,8 @@ fetch('data/vectors.json')
                                 }
 
                                 const updateCodesTable = function () {
-                                    codesTableContainer.children[guiState['Table'] === 'Circular C3 codes' ? 0 : 1].setAttribute('style', 'display: block')
-                                    codesTableContainer.children[guiState['Table'] === 'Circular C3 codes' ? 1 : 0].setAttribute('style', 'display: none');
+                                    codesTableContainer.children[guiState['Table'] === 'C3 codes' ? 0 : 1].setAttribute('style', 'display: block')
+                                    codesTableContainer.children[guiState['Table'] === 'C3 codes' ? 1 : 0].setAttribute('style', 'display: none');
                                     [...activeCodosTable().children[1].children].forEach(row =>
                                         [...row.children].slice(1).forEach(elem =>
                                             isCompliant((vectorsNonC3)[+elem.getAttribute('data-id')]) ? elem.classList.remove('excluded') : elem.classList.add('excluded')
@@ -224,9 +224,9 @@ fetch('data/vectors.json')
                                 const guiState = {
                                     Help: () => window.open('https://github.com/HadiSalehWeb/CodonPairSelector', '_blank'),
                                     Reset: () => setState(Array(10).fill(-1)),
-                                    Table: "Circular C3 codes", // "Circular codes"
-                                    "Test for": "Circularity and C3", // "Circularity only"
-                                    "Test by": "Matching", // "Algorithm"
+                                    Table: "C3 codes", // "Circular codes"
+                                    "C3": "Test for C3", // "Test for circularity only"
+                                    "Maximality": "Exclude codons from non-maximal codes.", // "Ignore maximality"
                                     // "Allow excluded selection": true,
                                     "# of codes: ": 216
                                 }
@@ -234,9 +234,9 @@ fetch('data/vectors.json')
                                 const gui = new dat.GUI()
                                 gui.add(guiState, 'Help')
                                 gui.add(guiState, 'Reset')
-                                gui.add(guiState, 'Table', ['Circular C3 codes', 'Circular codes']).onChange(_ => setState(state.included))
-                                gui.add(guiState, 'Test for', ['Circularity and C3', 'Circularity only']).onChange(_ => setState(state.included))
-                                gui.add(guiState, 'Test by', ['Matching', 'Algorithm']).onChange(_ => setState(state.included))
+                                gui.add(guiState, 'Table', ['C3 codes', 'Circular codes']).onChange(_ => setState(state.included))
+                                gui.add(guiState, 'C3', ['Test for C3', 'Test for circularity only']).onChange(_ => setState(state.included))
+                                gui.add(guiState, 'Maximality', ['Exclude codons from non-maximal codes.', 'Ignore maximality']).onChange(_ => setState(state.included))
                                 // gui.add(guiState, 'Allow excluded selection').onChange(_ => setState(state.included))
                                 const numDisplay = gui.add(guiState, '# of codes: ').listen()
                                 numDisplay.domElement.style.pointerEvents = "none"
