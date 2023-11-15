@@ -91,7 +91,6 @@ Promise.all([
         if (guiState["Self-complimentarity"] === 'Obey') state.included[row][column + (column % 2 === 0 ? 1 : -1)] = state.included[row][column]
         updateLogic()
         update()
-        console.log(state)
     }
 
     const setState = function (vector) {
@@ -164,8 +163,6 @@ Promise.all([
             C3: codesTableContainer.children[2]
         }
     }
-    console.log(vectors['CF'][0])
-    console.log(vectors['CF'][33])
     const getCodonElement = function (i, j) {
         return codonTableContainer.children[0].children[1].children[i].children[j]
     }
@@ -251,14 +248,39 @@ Promise.all([
 
 const letterToNumber = x => x.split('').map(x => ['A', 'C', 'T', 'G'].indexOf(x))
 
+// const isCircular = function (codons) {
+//     codons = codons.map(x => letterToNumber(x))
+//     const variations = variationsR(codons)(4)//.concat(variationsR(codons)(3))
+//     for (let nucleotide of variations)
+//         if (countDecompositions(nucleotide.reduce((a, c) => a.concat(c), []), codons) >= 2)
+//             return false
+//     return true
+// }
 const isCircular = function (codons) {
-    codons = codons.map(x => letterToNumber(x))
-    const variations = variationsR(codons)(4)//.concat(variationsR(codons)(3))
-    for (let nucleotide of variations)
-        if (countDecompositions(nucleotide.reduce((a, c) => a.concat(c), []), codons) >= 2)
-            return false
-    return true
+    return isAcyclic(codeGraph(codons))
 }
+
+const codeGraph = function (codons) {
+    return [distinct(codons.flatMap(x => [x[0], x[2], x[0] + x[1], x[1] + x[2]])), codons.flatMap(x => [[x[0], x[1] + x[2]], [x[0] + x[1], x[2]]])]
+}
+
+const isAcyclic = function ([verts, links]) {
+    const outgoing = verts.filter(v => !links.some(l => l[1] === v))
+    if (outgoing.length === 0) return false;
+    const visited = []
+    return outgoing.every(x => isCycleFree([verts, links], [x], visited)) && verts.every(v => visited.includes(v))
+
+}
+
+const isCycleFree = function ([verts, links], list, processed) {
+    if (!processed.includes(list[list.length - 1])) processed.push(list[list.length - 1])
+    const nextNodes = links.filter(x => x[0] === list[list.length - 1]).map(x => x[1])
+    if (nextNodes.length === 0) return true
+    if (nextNodes.some(x => list.includes(x))) return false
+    return nextNodes.every(x => isCycleFree([verts, links], list.concat(x), processed))
+}
+
+const distinct = arr => arr.reduce((a, c) => a.includes(c) ? a : a.concat(c), [])
 
 const isC3 = codons => isCircular(codons) && isCircular(codons.map(x => alpha1(x))) && isCircular(codons.map(x => alpha2(x)))
 
@@ -370,5 +392,4 @@ const lAnticodon = l => l === 'A' ? 'T' : l === 'T' ? 'A' : l === 'G' ? 'C' : 'G
 // Check the paper for things you could add
 // Test the 18
 // Prove the mechanism behind 18 codon codes
-// Take screenshots
 // write first draft for the tool
