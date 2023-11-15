@@ -31,8 +31,19 @@ td {
     user-select: none; 
 }
 
-#codes-table table:nth-child(2) {
+#codes-table table:nth-child(1) {
     font-size: 11px;
+}
+
+
+#codes-table table:nth-child(1) td {
+    padding: 0 2px;
+    text-align: center;
+    user-select: none; 
+}
+
+#codes-table table:nth-child(2) {
+    font-size: 10px;
 }
 
 
@@ -51,15 +62,22 @@ td {
 }
 
 .type1 {
-    color: #8E2F8E;
+    color: #BBD345;
+}
+
+.type2 {
+    color: #31966B;
 }
 
 .type3 {
-    color: #31966B;
+    color: #8E2F8E;
 }
 
 .type4 {
     color: #BBD345;
+}
+
+.type5 {
 }
 
 .included, .included.excluded {
@@ -82,4 +100,10 @@ td {
 
 .dg.main.a {
     width: 260px !important;
+    float: left !important;
+    margin-left: 15px !important;
+}
+
+.dg.ac .dg.main.a, .close-button.close-bottom {
+    width: 280px !important;
 }
