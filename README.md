@@ -22,6 +22,9 @@ The codons are colored by the patterns of the nucleotides they contain. Each cla
 ### Options:
 - Help: redirects to this page.
 - Reset: deselects all codons, starting the process over.
+- Copy current code to clipboard: copies the selected codons to clipboard as a comma-separated list.
+- Import code: prompts the user to type in a list of comma-separated codons and selects those in the tool.
+- Export table: downloads a json file of the entire right-side table for using as data or checking the codons in every code.
 - Type: what kind of trinucleotide code is being tested for (comma-free, circular or C3).
 - Self-complimentarity: whether or not to test for self-complimentarity.
 - Maximality: whether or not to test for maximality (codon will be excluded if they resulting code can not be extended to be maximal).
