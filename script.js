@@ -217,9 +217,42 @@ Promise.all([
         else controller.domElement.children[0].setAttribute('disabled', true)
     }
 
+    let lastAnimationCall = null
+    const prompt = document.getElementById('prompt')
+    const animatePrompt = function () {
+        if (lastAnimationCall !== null)
+            clearTimeout(lastAnimationCall)
+        prompt.style.top = '22px'
+        lastAnimationCall = setTimeout(() => prompt.style.top = '-50px', 2000)
+    }
+    const codonsToVector = function (codonsStr) {
+        if (codonsStr == null) return
+        const codons = codonsStr.split(',').map(x => x.trim().toUpperCase())
+        return Array(10).fill(0).map(_ => Array(6).fill(0)).map((row, i) => row.map((_, j) => codons.includes(standardOrder[i][j])))
+    }
+
+    const transformations = ["I", "c", "p", "r", "PI_CG", "PI_AT", "PI_ACTG", "PI_AGTC"]
+
     const guiState = {
         "Help": () => window.open('https://github.com/HadiSalehWeb/CodonPairSelector', '_blank'),
         "Reset": () => setState(Array(10).fill(0).map(_ => Array(6).fill(false))),
+        "Copy current code to clipboard": () => {
+            navigator.clipboard.writeText(state.included.flatMap((row, i) => row.map((x, j) => x == false ? '' : standardOrder[i][j])).filter(Boolean).join(', '))
+            animatePrompt()
+        },
+        "Import code": () => setState(codonsToVector(window.prompt("Enter a list of codons separated by commas e.g. ATC, CTT, GAC"))),
+        "Export table": () => {
+            const table = tables[currentSymbol()]
+            const dlAnchorElem = document.getElementById('downloadAnchorElem')
+            dlAnchorElem.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(vectors[currentSymbol()].map((code, n) => ({
+                label: n + 1,
+                equivalenceClass: table.find(row => row.some(x => x.id === n)).find(item => item != null && item.id === n).row + 1,
+                transformation: transformations[table.find(row => row.some(x => x.id === n)).find(item => item != null && item.id === n).column],
+                codons: code.flatMap((row, i) => row.map((x, j) => x === 0 ? null : standardOrder[i][j])).filter(x => x !== null),
+            })), null, "\t")))
+            dlAnchorElem.setAttribute("download", currentSymbol() + ".json")
+            dlAnchorElem.click()
+        },
         // "Table": "Comma-free", // "Circular", "C3"
         "Type": "Comma-free", // "Circular", "C3"
         "Self-complimentarity": "Ignore", // "Ignore"
@@ -230,6 +263,9 @@ Promise.all([
     const gui = new dat.GUI()
     gui.add(guiState, 'Help')
     gui.add(guiState, 'Reset')
+    gui.add(guiState, 'Copy current code to clipboard')
+    gui.add(guiState, 'Import code')
+    gui.add(guiState, 'Export table')
     // gui.add(guiState, 'Table', ['Comma-free', 'Circular', 'C3']).onChange(_ => setState(state.included))
     gui.add(guiState, 'Type', ['Comma-free', 'Circular', 'C3']).onChange(onTypeChanged) //_ => setState(state.included))
     const scController = gui.add(guiState, 'Self-complimentarity', ['Obey', 'Ignore']).onChange(onSCChanged)//_ => setState(state.included))
@@ -260,24 +296,92 @@ const isCircular = function (codons) {
     return isAcyclic(codeGraph(codons))
 }
 
+const isICircular = function (codons) {
+    return isAcyclicStar(labeledCodeGraph(codons))
+}
+
 const codeGraph = function (codons) {
     return [distinct(codons.flatMap(x => [x[0], x[2], x[0] + x[1], x[1] + x[2]])), codons.flatMap(x => [[x[0], x[1] + x[2]], [x[0] + x[1], x[2]]])]
 }
 
-const isAcyclic = function ([verts, links]) {
-    const outgoing = verts.filter(v => !links.some(l => l[1] === v))
-    if (outgoing.length === 0) return false;
-    const visited = []
-    return outgoing.every(x => isCycleFree([verts, links], [x], visited)) && verts.every(v => visited.includes(v))
-
+const labeledCodeGraph = function (codons) {
+    return [distinct(codons.flatMap(x => [x[0], x[2], x[0] + x[1], x[1] + x[2]])), codons.flatMap(x => [[x[0], x[1] + x[2]], [x[0] + x[1], x[2]]]).map(x => ({ edge: x, aminoAcid: aminoAcid(x[0] + x[1]) }))]
 }
 
-const isCycleFree = function ([verts, links], list, processed) {
+const aminoAcid = function (codon) {
+    return codon[0] == 'T' ?
+        codon[1] == 'C' ? 'Ser' :
+            codon[1] == 'T' ?
+                codon[2] == 'T' || codon[2] == 'C' ? 'Phe' :
+                    'Leu' :
+                codon[1] == 'A' ?
+                    codon[2] == 'T' || codon[2] == 'C' ? 'Tyr' :
+                        'STOP' :
+                    codon[2] == 'A' ? 'STOP' :
+                        codon[2] == 'G' ? 'Trp' :
+                            'Cys' :
+        codon[0] == 'C' ?
+            codon[1] == 'T' ? 'Leu' :
+                codon[1] == 'C' ? 'Pro' :
+                    codon[1] == 'G' ? 'Arg' :
+                        codon[2] == 'T' || codon[2] == 'C' ? 'His' :
+                            'Gln' :
+            codon[0] == 'A' ?
+                codon[1] == 'T' ?
+                    codon[2] == 'G' ? 'Met' :
+                        'Ile' :
+                    codon[1] == 'C' ? 'Thr' :
+                        codon[1] == 'A' ?
+                            codon[2] == 'T' || codon[2] == 'C' ? 'Asn' :
+                                'Lys' :
+                            codon[2] == 'T' || codon[2] == 'C' ? 'Ser' :
+                                'Arg' :
+                codon[1] == 'T' ? 'Val' :
+                    codon[1] == 'C' ? 'Ala' :
+                        codon[1] == 'G' ? 'Gly' :
+                            codon[2] == 'T' || codon[2] == 'C' ? 'Asp' :
+                                'Glu';
+}
+
+const isAcyclic = function ([verts, edges]) {
+    const outgoing = verts.filter(v => !edges.some(l => l[1] === v))
+    if (outgoing.length === 0) return false;
+    const visited = []
+    return outgoing.every(x => isCycleFree([verts, edges], [x], visited)) && verts.every(v => visited.includes(v))
+}
+
+const isAcyclicStar = function ([verts, edges]) {
+    const visited = []
+    const cycles = []
+    while (verts.some(v => !visited.includes(v)))
+        findCycles([verts, edges], [verts.filter(v => !visited.includes(v))[0]], visited, cycles)
+    return cycles.every(c => sharesAminoAcids(c, edges))
+}
+
+const findCycles = function ([verts, edges], path, visited, cycles) {
+    const current = path[path.length - 1]
+    visited.push(current)
+    const outgoing = edges.filter(e => e.edge[0] === current).map(x => x.edge[1])
+    const outgoingFiltered = []
+    for (let v of outgoing)
+        if (path.includes(v))
+            cycles.push(path.slice(path.indexOf(v)))
+        else outgoingFiltered.push(v)
+    for (let v of outgoingFiltered)
+        findCycles([verts, edges], path.concat(v), visited, cycles)
+    return cycles
+}
+
+const isCycleFree = function ([verts, edges], list, processed) {
     if (!processed.includes(list[list.length - 1])) processed.push(list[list.length - 1])
-    const nextNodes = links.filter(x => x[0] === list[list.length - 1]).map(x => x[1])
+    const nextNodes = edges.filter(x => x[0] === list[list.length - 1]).map(x => x[1])
     if (nextNodes.length === 0) return true
     if (nextNodes.some(x => list.includes(x))) return false
-    return nextNodes.every(x => isCycleFree([verts, links], list.concat(x), processed))
+    return nextNodes.every(x => isCycleFree([verts, edges], list.concat(x), processed))
+}
+
+const sharesAminoAcids = function (list, edges) {
+    return distinct(list.map((x, i) => edges.filter(y => y.edge[0] === x && y.edge[1] === list[i === list.length - 1 ? 0 : i + 1])[0].aminoAcid)).length === 1
 }
 
 const distinct = arr => arr.reduce((a, c) => a.includes(c) ? a : a.concat(c), [])
@@ -311,85 +415,90 @@ const tAlpha1 = codon => codon[1] + codon[2] + codon[0]
 const tAlpha2 = codon => codon[2] + codon[0] + codon[1]
 const tAnticodon = codon => lAnticodon(codon[2]) + lAnticodon(codon[1]) + lAnticodon(codon[0])
 const lAnticodon = l => l === 'A' ? 'T' : l === 'T' ? 'A' : l === 'G' ? 'C' : 'G'
+const except = (arr, ex) => arr.filter(x => !ex.includes(x))
+
+
+
+// const nucleotides = ['A', 'T', 'C', 'G']
+// const allCodons = nucleotides.flatMap(x => nucleotides.flatMap(y => nucleotides.flatMap(z => x + y + z)))
+// const table = allCodons.map(x => ({ codon: x, aminoAcid: aminoAcid(x) }))
+// const aminoMap = table.reduce((a, c) => {
+//     const found = a.filter(x => x.aminoAcid === c.aminoAcid)
+//     if (found.length === 0)
+//         return a.concat({ aminoAcid: c.aminoAcid, codons: [c.codon] })
+//     found[0].codons.push(c.codon)
+//     return a
+// }, [])
+// const aminoAcidList = distinct(table.map(x => x.aminoAcid).filter(x => x !== 'STOP'))
+// const getNucs = amino => aminoMap.filter(x => x.aminoAcid === amino)[0].codons
+
+// const chains = combinations(aminoAcidList)(3).map(x => ['STOP', ...x])
+// const codonChains = chains.map(chain => ({ chain, nucs: getNucs(chain[0]).flatMap(n0 => getNucs(chain[1]).flatMap(n1 => getNucs(chain[2]).flatMap(n2 => getNucs(chain[3]).map(n3 => [n0, n1, n2, n3])))) }))
+// const result = codonChains
+//     .map(x => ({ chain: x.chain, nucs: x.nucs.map(y => ({ list: y, isCommaFree: isCommaFree(y), isCircular: isCircular(y), isICircular: isICircular(y) })) }))
+//     .map(x => ({ chain: x.chain, nucs: x.nucs, sum: x.nucs.length, CF: x.nucs.filter(y => y.isCommaFree).length, C: x.nucs.filter(y => y.isCircular).length, IC: x.nucs.filter(y => y.isICircular).length, }))
+
+// console.log(result)
+
+// const aggregate = {
+//     sum: result.reduce((a, c) => a + c.sum, 0),
+//     iCircular: result.reduce((a, c) => a + c.IC, 0),
+//     circular: result.reduce((a, c) => a + c.C, 0),
+//     commaFree: result.reduce((a, c) => a + c.CF, 0)
+// }
+
+// aggregate.iCircularRatio = aggregate.iCircular / aggregate.sum
+// aggregate.circularRatio = aggregate.circular / aggregate.sum
+// aggregate.commaFreeRatio = aggregate.commaFree / aggregate.sum
+
+// // console.log(aggregate)
+
+// let text = ''
+
+// text += 'Aggregate: \n'
+// text += `Sum: ${aggregate.sum}\n`
+// text += `I-Circular: ${aggregate.iCircular}\n`
+// text += `Ratio: ${aggregate.iCircularRatio}\n`
+// text += `Circular: ${aggregate.circular}\n`
+// text += `Ratio: ${aggregate.circularRatio}\n`
+// text += `Comma-free: ${aggregate.commaFree}\n`
+// text += `Ratio: ${aggregate.commaFreeRatio}\n`
+
+// text += '\n\n\n'
+
+// text += result.reduce((a, c) => a + `Amino acids: [${c.chain.join(' ,')}]. I-Circular: ${c.IC}. Circular: ${c.C}. Comma-free: ${c.CF}. Codes:\n${c.nucs.map(nuc => ('[' + nuc.list.join(' ,') + ']') + (nuc.isCommaFree ? ' (comma free)' : nuc.isCircular ? ' (circular)' : nuc.isICircular ? ' (i-circular)' : '')).join('\n')}\n\n`, '')
+
+// console.log(text)
+
+
+
+
+
+
+
+
+
 // reverse function
 // why are some codes non maximal? which combinations of condons make it so?
 // text for: current code is comma free/circular/c3/maximal/self complimentary
 
 
 
-// var codesToCheck = [
-//     ['AAC', 'AAG', 'AAT', 'ACG', 'ACT', 'AGT', 'ATT', 'CAG', 'CCG', 'CGG', 'CGT', 'CTG', 'CTT', 'GGA', 'GTT', 'TCA', 'TCC', 'TGA'],
-//     ['AAC', 'AAG', 'AAT', 'ACG', 'ATT', 'CAG', 'CCG', 'CGG', 'CGT', 'CTA', 'CTG', 'CTT', 'GGA', 'GTT', 'TAG', 'TCA', 'TCC', 'TGA'],
-//     ['AAC', 'AAG', 'AAT', 'ACT', 'AGC', 'AGT', 'ATT', 'CCA', 'CTT', 'GAC', 'GCC', 'GCT', 'GGC', 'GTC', 'GTT', 'TCA', 'TGA', 'TGG'],
-//     ['AAC', 'AAG', 'AAT', 'AGC', 'ATT', 'CCA', 'CTT', 'GAC', 'GCC', 'GCT', 'GGC', 'GTA', 'GTC', 'GTT', 'TAC', 'TCA', 'TGA', 'TGG'],
-//     ['AAC', 'AAT', 'ACG', 'ACT', 'AGA', 'AGC', 'AGT', 'ATT', 'CCG', 'CGG', 'CGT', 'GCT', 'GGA', 'GTT', 'TCA', 'TCC', 'TCT', 'TGA'],
-//     ['AAC', 'AAT', 'ACG', 'ACT', 'AGA', 'AGT', 'ATT', 'CAG', 'CCG', 'CGG', 'CGT', 'CTG', 'GGA', 'GTT', 'TCA', 'TCC', 'TCT', 'TGA'],
-//     ['AAC', 'AGG', 'ATG', 'CAC', 'CAG', 'CAT', 'CCG', 'CCT', 'CGG', 'CTA', 'CTG', 'GAC', 'GTC', 'GTG', 'GTT', 'TAA', 'TAG', 'TTA'],
-//     ['AAC', 'AGG', 'CAC', 'CAG', 'CCG', 'CCT', 'CGG', 'CTA', 'CTG', 'GAC', 'GTC', 'GTG', 'GTT', 'TAA', 'TAG', 'TCA', 'TGA', 'TTA'],
-//     ['AAC', 'AGG', 'CAG', 'CCA', 'CCG', 'CCT', 'CGG', 'CTA', 'CTG', 'GAC', 'GTC', 'GTT', 'TAA', 'TAG', 'TCA', 'TGA', 'TGG', 'TTA'],
-//     ['AAC', 'AGG', 'CCA', 'CCG', 'CCT', 'CGG', 'CTA', 'GAC', 'GCA', 'GTC', 'GTT', 'TAA', 'TAG', 'TCA', 'TGA', 'TGC', 'TGG', 'TTA'],
-//     ['AAG', 'AAT', 'ACA', 'ACG', 'ACT', 'AGC', 'AGT', 'ATT', 'CCA', 'CGT', 'CTT', 'GCC', 'GCT', 'GGC', 'TCA', 'TGA', 'TGG', 'TGT'],
-//     ['AAG', 'AAT', 'ACA', 'ACT', 'AGC', 'AGT', 'ATT', 'CCA', 'CTT', 'GAC', 'GCC', 'GCT', 'GGC', 'GTC', 'TCA', 'TGA', 'TGG', 'TGT'],
-//     ['AAG', 'ACC', 'ATC', 'CAG', 'CTC', 'CTG', 'CTT', 'GAC', 'GAG', 'GAT', 'GCC', 'GGC', 'GGT', 'GTA', 'GTC', 'TAA', 'TAC', 'TTA'],
-//     ['AAG', 'ACC', 'CAG', 'CGA', 'CTG', 'CTT', 'GCC', 'GGA', 'GGC', 'GGT', 'GTA', 'TAA', 'TAC', 'TCA', 'TCC', 'TCG', 'TGA', 'TTA'],
-//     ['AAG', 'ACC', 'CAG', 'CTC', 'CTG', 'CTT', 'GAC', 'GAG', 'GCC', 'GGC', 'GGT', 'GTA', 'GTC', 'TAA', 'TAC', 'TCA', 'TGA', 'TTA'],
-//     ['AAG', 'ACC', 'CAG', 'CTG', 'CTT', 'GAC', 'GCC', 'GGA', 'GGC', 'GGT', 'GTA', 'GTC', 'TAA', 'TAC', 'TCA', 'TCC', 'TGA', 'TTA'],
-//     ['AAT', 'ACC', 'ACG', 'ACT', 'AGT', 'ATC', 'ATT', 'CAA', 'CAG', 'CGT', 'CTG', 'GAT', 'GCC', 'GGA', 'GGC', 'GGT', 'TCC', 'TTG'],
-//     ['AAT', 'ACC', 'ACT', 'AGT', 'ATC', 'ATT', 'CAA', 'CAG', 'CTG', 'GAC', 'GAT', 'GCC', 'GGA', 'GGC', 'GGT', 'GTC', 'TCC', 'TTG'],
-//     ['AAT', 'ACT', 'AGC', 'AGG', 'AGT', 'ATG', 'ATT', 'CAT', 'CCA', 'CCG', 'CCT', 'CGG', 'GAA', 'GAC', 'GCT', 'GTC', 'TGG', 'TTC'],
-//     ['AAT', 'ACT', 'AGG', 'AGT', 'ATG', 'ATT', 'CAG', 'CAT', 'CCA', 'CCG', 'CCT', 'CGG', 'CTG', 'GAA', 'GAC', 'GTC', 'TGG', 'TTC'],
-//     ['AAT', 'ACT', 'AGT', 'ATC', 'ATT', 'CAA', 'CAC', 'CAG', 'CTG', 'GAC', 'GAT', 'GCC', 'GGA', 'GGC', 'GTC', 'GTG', 'TCC', 'TTG'],
-//     ['AAT', 'ACT', 'AGT', 'ATG', 'ATT', 'CAG', 'CAT', 'CCA', 'CCG', 'CGG', 'CTC', 'CTG', 'GAA', 'GAC', 'GAG', 'GTC', 'TGG', 'TTC'],
-//     ['AAT', 'ATC', 'ATT', 'CAA', 'CAC', 'CAG', 'CTG', 'GAC', 'GAT', 'GCC', 'GGA', 'GGC', 'GTA', 'GTC', 'GTG', 'TAC', 'TCC', 'TTG'],
-//     ['AAT', 'ATG', 'ATT', 'CAG', 'CAT', 'CCA', 'CCG', 'CGG', 'CTA', 'CTC', 'CTG', 'GAA', 'GAC', 'GAG', 'GTC', 'TAG', 'TGG', 'TTC'],
-//     ['ACA', 'ACC', 'ACT', 'AGT', 'CAG', 'CCG', 'CGA', 'CGG', 'CTG', 'GAA', 'GGT', 'TAA', 'TCA', 'TCG', 'TGA', 'TGT', 'TTA', 'TTC'],
-//     ['ACA', 'ACC', 'ACT', 'AGT', 'CCG', 'CGA', 'CGG', 'GAA', 'GCA', 'GGT', 'TAA', 'TCA', 'TCG', 'TGA', 'TGC', 'TGT', 'TTA', 'TTC'],
-//     ['ACC', 'ACT', 'AGT', 'ATG', 'CAA', 'CAG', 'CAT', 'CCG', 'CGA', 'CGG', 'CTG', 'GAA', 'GGT', 'TAA', 'TCG', 'TTA', 'TTC', 'TTG'],
-//     ['ACC', 'ACT', 'AGT', 'CAA', 'CAG', 'CCG', 'CGA', 'CGG', 'CTG', 'GAA', 'GGT', 'TAA', 'TCA', 'TCG', 'TGA', 'TTA', 'TTC', 'TTG'],
-//     ['ACT', 'AGA', 'AGG', 'AGT', 'CAA', 'CCT', 'CGA', 'GCA', 'GCC', 'GGC', 'TAA', 'TCA', 'TCG', 'TCT', 'TGA', 'TGC', 'TTA', 'TTG'],
-//     ['ACT', 'AGA', 'AGG', 'AGT', 'CAA', 'CCT', 'GAC', 'GCA', 'GCC', 'GGC', 'GTC', 'TAA', 'TCA', 'TCT', 'TGA', 'TGC', 'TTA', 'TTG'],
-//     ['ACT', 'AGG', 'AGT', 'ATC', 'CAA', 'CCT', 'GAA', 'GAC', 'GAT', 'GCA', 'GCC', 'GGC', 'GTC', 'TAA', 'TGC', 'TTA', 'TTC', 'TTG'],
-//     ['ACT', 'AGG', 'AGT', 'CAA', 'CCT', 'GAA', 'GAC', 'GCA', 'GCC', 'GGC', 'GTC', 'TAA', 'TCA', 'TGA', 'TGC', 'TTA', 'TTC', 'TTG']
-// ]
-
-// console.log('start')
-// console.log(codesToCheck.map(x => [isCircular(x), isC3(x)]))
-
-// 0: true, false
-// 1: true, false
-// 2: true, false
-// 3: true, false
-// 4: true, true
-// 5: true, false
-// 6: true, true
-// 7: true, false
-// 8: true, false
-// 9: true, false
-// 10: true, true
-// 11: true, false
-// 12: true, true
-// 13: true, false
-// 14: true, false
-// 15: true, false
-// 16: true, false
-// 17: true, false
-// 18: true, false
-// 19: true, false
-// 20: true, false
-// 21: true, false
-// 22: true, true
-// 23: true, true
-// 24: true, false
-// 25: true, true
-// 26: true, false
-// 27: true, false
-// 28: true, true
-// 29: true, false
-// 30: true, false
-// 31: true, false
-
-
-// Check the paper for things you could add
-// Test the 18
+// Check the paper for things you could add (16 and 96 dimaximal codes)
+// X Test the 18
 // Prove the mechanism behind 18 codon codes
-// write first draft for the tool
+// mention that anticodons are sometimes but not always invlolved in the three pair exclusion rules
+// list the codons of the counterexample C3 non-maximal code you found
+// X check if the 8 non-maximal C3 codes are transformations of each other
+// X run the L transformations on all 32 non maximal codes
+// why are there only 216? Can you use the exclusion rules to find an upper limit?
+
+// check the images
+// how did you find the set in section 6?
+// why do we only have 216?
+// extend the code subset in section 6, which michel code is it?
+
+
+// add which code is shown in the last screenshot
+// correct the last section, only one of the code (29) is C3
+// add date to file name

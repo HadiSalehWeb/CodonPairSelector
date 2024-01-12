@@ -107,3 +107,18 @@ td {
 .dg.ac .dg.main.a, .close-button.close-bottom {
     width: 280px !important;
 }
+
+.dg.ac .dg.main.a ul li:nth-child(3) div span {
+    width: 100%
+}
+
+#prompt {
+    position: fixed;
+    top: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 2px solid white;
+    padding: 8px;
+    font-size: 1.6em;
+    transition: top .2s;
+}
